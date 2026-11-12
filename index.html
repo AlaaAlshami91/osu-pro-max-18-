@@ -1,0 +1,1062 @@
+<!DxOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>osu! Pro Max Power</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,600;0,800;0,900;1,800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+  <style>
+    body {
+      font-family: 'Exo 2', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+      background-color: #08070d;
+      cursor: none; /* Hide standard cursor for custom osu! cursor */
+    }
+
+    /* osu! pulsing logo animation */
+    @keyframes osuPulse {
+      0% { transform: scale(1); box-shadow: 0 0 50px rgba(234, 76, 137, 0.7), inset 0 0 25px rgba(255, 255, 255, 0.3); }
+      50% { transform: scale(1.08); box-shadow: 0 0 90px rgba(255, 102, 170, 1), inset 0 0 40px rgba(255, 255, 255, 0.6); }
+      100% { transform: scale(1); box-shadow: 0 0 50px rgba(234, 76, 137, 0.7), inset 0 0 25px rgba(255, 255, 255, 0.3); }
+    }
+    .osu-pulse {
+      animation: osuPulse 0.75s infinite ease-in-out;
+    }
+
+    @keyframes bgGlow {
+      0% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.65; transform: scale(1.06); }
+      100% { opacity: 0.3; transform: scale(1); }
+    }
+    .bg-pulse {
+      animation: bgGlow 4s infinite ease-in-out;
+    }
+
+    /* Key indicator feedback animation */
+    .key-active {
+      background-color: rgba(255, 102, 170, 0.9) !important;
+      color: white !important;
+      transform: scale(0.92);
+      box-shadow: 0 0 20px rgba(255, 102, 170, 1);
+    }
+
+    /* Custom Scrollbar for Song Select */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 15, 25, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #ff66aa;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen relative bg-slate-950 text-white overflow-hidden">
+
+  <!-- Dynamic Background Container with Dim Layer -->
+  <div id="bgLayer" class="absolute inset-0 bg-cover bg-center transition-all duration-700 filter blur-sm scale-105 opacity-40 z-0" style="background-image: url('https://lh3.googleusercontent.com/gg/AI-bd7pM5vFf-a5HkRjB4_5vP9QhWd2R2rP044Hj8H6g0QeW7Xw');"></div>
+  <div class="absolute inset-0 bg-gradient-to-br from-pink-950/50 via-slate-950/80 to-purple-950/60 pointer-events-none z-0"></div>
+
+  <!-- CANVAS FOR GAMEPLAY & CURSOR EFFECTS -->
+  <canvas id="gameCanvas" class="absolute inset-0 z-10 w-full h-full block cursor-none"></canvas>
+
+  <!-- HUD OVERLAY (Gameplay Screen) -->
+  <div id="hudOverlay" class="absolute inset-0 z-20 pointer-events-none hidden flex-col justify-between p-6">
+    <!-- Top Bar: Health Bar & Accuracy/Score -->
+    <div class="w-full flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <!-- HP Bar -->
+      <div class="w-full md:w-1/3 bg-slate-900/80 p-2 rounded-full border border-slate-700/60 shadow-lg backdrop-blur-md">
+        <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden relative">
+          <div id="hpFill" class="h-full bg-gradient-to-r from-pink-500 via-rose-400 to-emerald-400 transition-all duration-100 rounded-full" style="width: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Score & Accuracy -->
+      <div class="flex flex-col items-end text-right font-extrabold tracking-wider drop-shadow-md">
+        <div id="scoreDisplay" class="text-4xl md:text-5xl tracking-widest font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-pink-100 to-pink-300">00000000</div>
+        <div class="flex gap-4 text-lg text-slate-300 font-semibold">
+          <span>ACC: <span id="accuracyDisplay" class="text-pink-400">100.00%</span></span>
+          <span id="rankBadge" class="bg-amber-400 text-slate-950 px-2 py-0.5 rounded text-xs font-black shadow">SS</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar: Combo & Key Overlay -->
+    <div class="w-full flex justify-between items-end">
+      <!-- Combo Counter -->
+      <div class="flex flex-col items-start">
+        <div id="comboDisplay" class="text-6xl md:text-7xl font-black text-pink-400 tracking-tighter drop-shadow-[0_0_25px_rgba(255,102,170,0.8)]">0x</div>
+      </div>
+
+      <!-- Key Press Overlay -->
+      <div class="flex gap-2">
+        <div id="keyZ" class="w-14 h-14 rounded-xl bg-slate-900/80 border-2 border-pink-500/50 flex flex-col items-center justify-center font-black text-xl text-pink-300 shadow-lg backdrop-blur transition-all duration-75">
+          <span>Z</span>
+          <span id="keyZCount" class="text-[10px] text-slate-400 font-normal">0</span>
+        </div>
+        <div id="keyX" class="w-14 h-14 rounded-xl bg-slate-900/80 border-2 border-pink-500/50 flex flex-col items-center justify-center font-black text-xl text-pink-300 shadow-lg backdrop-blur transition-all duration-75">
+          <span>X</span>
+          <span id="keyXCount" class="text-[10px] text-slate-400 font-normal">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN MENU SCREEN -->
+  <div id="mainMenu" class="absolute inset-0 z-30 flex flex-col justify-between items-center p-8 bg-slate-950/70 backdrop-blur-md transition-all duration-500">
+    <!-- Header -->
+    <div class="w-full flex justify-between items-center max-w-6xl">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-600 to-rose-400 flex items-center justify-center font-black text-lg shadow-lg shadow-pink-500/50">osu!</div>
+        <span class="font-black text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-300 to-purple-400">osu! Pro Max Power</span>
+      </div>
+      <button id="btnSettingsToggle" class="text-slate-300 hover:text-pink-400 transition text-xl p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </div>
+
+    <!-- Center OSU Big Pulsing Logo -->
+    <div class="flex flex-col items-center justify-center cursor-pointer group my-auto" id="osuLogoBtn">
+      <div class="w-60 h-60 md:w-80 md:h-80 rounded-full bg-gradient-to-tr from-pink-600 via-pink-500 to-rose-400 border-8 border-white/90 flex flex-col items-center justify-center shadow-2xl osu-pulse group-hover:scale-105 transition-transform duration-300 relative">
+        <span class="text-6xl md:text-7xl font-black tracking-tighter text-white drop-shadow-lg select-none text-center leading-none">osu!<br><span class="text-xl md:text-2xl tracking-normal text-pink-100 font-extrabold uppercase">PRO MAX</span></span>
+      </div>
+    </div>
+
+    <!-- Main Menu Action Buttons Grid -->
+    <div id="menuButtons" class="flex flex-wrap justify-center gap-4 max-w-xl w-full mb-6 transition-all duration-300">
+      <button id="btnPlay" class="flex-1 min-w-[150px] py-4 px-6 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 font-extrabold text-xl rounded-2xl shadow-xl shadow-pink-500/40 transform hover:-translate-y-1 transition duration-200 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-play"></i> PLAY
+      </button>
+      <button id="btnSongSelect" class="flex-1 min-w-[150px] py-4 px-6 bg-slate-900/90 hover:bg-slate-800 border border-pink-500/40 font-bold text-lg rounded-2xl shadow-lg transform hover:-translate-y-1 transition duration-200 flex items-center justify-center gap-2 text-pink-300">
+        <i class="fa-solid fa-music"></i> BEATMAPS
+      </button>
+    </div>
+
+    <!-- Footer Controls info -->
+    <div class="text-slate-400 text-xs md:text-sm font-medium flex gap-6 bg-slate-900/70 px-6 py-2.5 rounded-full border border-slate-800/80 backdrop-blur">
+      <span><strong class="text-pink-400">Controls:</strong> Mouse Click or <strong class="text-pink-400">Z / X</strong> keys</span>
+      <span>•</span>
+      <span>Custom Anime Background Engine</span>
+    </div>
+  </div>
+
+  <!-- SONG SELECT SCREEN -->
+  <div id="songSelectScreen" class="absolute inset-0 z-30 hidden bg-slate-950/90 backdrop-blur-xl flex-col p-6 md:p-12 transition-all duration-300">
+    <div class="flex justify-between items-center mb-6 max-w-6xl w-full mx-auto">
+      <div>
+        <h2 class="text-3xl font-black text-pink-400 tracking-wide">osu! PRO MAX - BEATMAP SELECT</h2>
+        <p class="text-slate-400 text-sm">Choose a track with custom anime themes</p>
+      </div>
+      <button id="btnBackToMain" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-xl font-bold flex items-center gap-2 transition">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+    </div>
+
+    <!-- Beatmaps List -->
+    <div class="max-w-6xl w-full mx-auto flex-1 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-3 gap-5 my-auto" id="songListContainer">
+      <!-- Injected by JavaScript -->
+    </div>
+
+    <!-- Beatmap Info & Start Action -->
+    <div class="max-w-6xl w-full mx-auto mt-6 flex justify-between items-center bg-slate-900/90 p-4 rounded-2xl border border-pink-500/40 shadow-xl backdrop-blur">
+      <div id="selectedSongInfo" class="flex items-center gap-4">
+        <img id="selectedBgPreview" src="" class="w-16 h-16 rounded-xl object-cover border-2 border-pink-500/60 shadow" alt="Preview">
+        <div>
+          <h4 id="selectedTitle" class="font-bold text-lg text-white">Select a track</h4>
+          <p id="selectedDetails" class="text-xs text-slate-400">BPM: -- | AR: -- | CS: --</p>
+        </div>
+      </div>
+      <button id="btnStartGame" class="px-8 py-4 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 font-black text-xl rounded-xl shadow-lg shadow-pink-500/40 transform hover:scale-105 transition active:scale-95 flex items-center gap-2">
+        <i class="fa-solid fa-play"></i> START GAME
+      </button>
+    </div>
+  </div>
+
+  <!-- GAME OVER / RESULTS SCREEN -->
+  <div id="resultScreen" class="absolute inset-0 z-40 hidden bg-slate-950/95 backdrop-blur-2xl flex-col items-center justify-center p-6 transition-all duration-500">
+    <div class="max-w-2xl w-full bg-slate-900/90 border border-pink-500/50 rounded-3xl p-8 shadow-2xl flex flex-col items-center relative overflow-hidden backdrop-blur-xl">
+      <div class="absolute -top-24 -right-24 w-48 h-48 bg-pink-500/20 rounded-full blur-2xl"></div>
+      
+      <h2 class="text-2xl font-black text-pink-400 tracking-wider mb-1">osu! PRO MAX POWER</h2>
+      <h3 id="resultSongTitle" class="text-xl font-bold text-slate-100 mb-6">Track Title Here</h3>
+
+      <!-- Main Result Layout -->
+      <div class="flex flex-col md:flex-row items-center justify-around w-full gap-8 my-4">
+        <!-- Grade Letter -->
+        <div id="resultGrade" class="text-9xl font-black text-amber-400 drop-shadow-[0_0_40px_rgba(251,191,36,0.7)]">
+          S
+        </div>
+
+        <!-- Stats Breakdown Grid -->
+        <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-lg w-full md:w-auto">
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1">
+            <span class="text-slate-400 font-semibold">Total Score:</span>
+            <span id="resScore" class="font-bold text-white">0</span>
+          </div>
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1">
+            <span class="text-slate-400 font-semibold">Accuracy:</span>
+            <span id="resAccuracy" class="font-bold text-pink-400">100%</span>
+          </div>
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1">
+            <span class="text-slate-400 font-semibold">Max Combo:</span>
+            <span id="resMaxCombo" class="font-bold text-emerald-400">0x</span>
+          </div>
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1">
+            <span class="text-sky-400 font-extrabold">300s:</span>
+            <span id="res300" class="font-bold text-white">0</span>
+          </div>
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1">
+            <span class="text-emerald-400 font-extrabold">100s:</span>
+            <span id="res100" class="font-bold text-white">0</span>
+          </div>
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1">
+            <span class="text-amber-400 font-extrabold">50s:</span>
+            <span id="res50" class="font-bold text-white">0</span>
+          </div>
+          <div class="flex justify-between gap-4 border-b border-slate-800 pb-1 col-span-2">
+            <span class="text-rose-500 font-extrabold">Misses:</span>
+            <span id="resMiss" class="font-bold text-rose-500">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-4 w-full mt-6">
+        <button id="btnRetry" class="flex-1 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-pink-600/30">
+          <i class="fa-solid fa-rotate-right"></i> Retry
+        </button>
+        <button id="btnResultMenu" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition flex items-center justify-center gap-2 border border-slate-700">
+          <i class="fa-solid fa-house"></i> Main Menu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="absolute inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-pink-400">Game Settings</h3>
+        <button id="btnCloseSettings" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <div class="space-y-4 text-sm">
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Master Volume</label>
+          <input type="range" id="sliderVolume" min="0" max="1" step="0.05" value="0.7" class="w-full accent-pink-500">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Background Dim Level</label>
+          <input type="range" id="sliderBgDim" min="0.1" max="0.9" step="0.05" value="0.4" class="w-full accent-pink-500">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Circle Size (CS Scale)</label>
+          <input type="range" id="sliderCS" min="0.7" max="1.4" step="0.1" value="1" class="w-full accent-pink-500">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC ENGINE -->
+  <script>
+    /* ==========================================================================
+       1. AUDIO SYNTH ENGINE
+       ========================================================================== */
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.volume = 0.7;
+        this.activeNodes = [];
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = this.volume;
+          this.masterGain.connect(this.ctx.destination);
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      setVolume(val) {
+        this.volume = val;
+        if (this.masterGain) {
+          this.masterGain.gain.value = this.volume;
+        }
+      }
+
+      playHitsound(type = '300') {
+        if (!this.ctx) return;
+        
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        if (type === '300') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(650, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+          gain.gain.setValueAtTime(0.85, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        } else if (type === '100') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(450, now);
+          osc.frequency.exponentialRampToValueAtTime(120, now + 0.08);
+          gain.gain.setValueAtTime(0.6, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        } else {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(280, now);
+          osc.frequency.exponentialRampToValueAtTime(90, now + 0.06);
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        }
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.09);
+      }
+
+      startProceduralTrack(bpm, duration, onComplete) {
+        this.stopTrack();
+        if (!this.ctx) this.init();
+
+        const beatInterval = 60 / bpm;
+        let currentTime = this.ctx.currentTime + 0.1;
+        const totalBeats = Math.floor(duration / beatInterval);
+
+        for (let i = 0; i < totalBeats; i++) {
+          const time = currentTime + i * beatInterval;
+          const isBarStart = i % 4 === 0;
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = isBarStart ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(isBarStart ? 180 : 120, time);
+          osc.frequency.exponentialRampToValueAtTime(35, time + 0.12);
+
+          gain.gain.setValueAtTime(isBarStart ? 0.35 : 0.2, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+
+          osc.start(time);
+          osc.stop(time + 0.15);
+          this.activeNodes.push(osc);
+        }
+
+        this.trackTimeout = setTimeout(() => {
+          if (onComplete) onComplete();
+        }, duration * 1000);
+      }
+
+      stopTrack() {
+        if (this.trackTimeout) clearTimeout(this.trackTimeout);
+        this.activeNodes.forEach(node => {
+          try { node.stop(); } catch(e) {}
+        });
+        this.activeNodes = [];
+      }
+    }
+
+    const audio = new AudioEngine();
+
+    /* ==========================================================================
+       2. BEATMAP DATABASE (CUSTOM ANIME IMAGES INTEGRATED)
+       ========================================================================== */
+    const BEATMAPS = [
+      {
+        id: 'track1',
+        title: 'Bunny Hop Revolution',
+        artist: 'Usagi Rush',
+        bpm: 135,
+        ar: 8.5,
+        cs: 1.0,
+        duration: 34,
+        difficulty: 'Pro Easy',
+        bg: 'https://lh3.googleusercontent.com/gg/AI-bd7pM5vFf-a5HkRjB4_5vP9QhWd2R2rP044Hj8H6g0QeW7Xw',
+        color: 'from-pink-500 to-rose-600'
+      },
+      {
+        id: 'track2',
+        title: 'Ocean Swimsuit Wave',
+        artist: 'Natsumi Electro',
+        bpm: 165,
+        ar: 9.2,
+        cs: 0.95,
+        duration: 38,
+        difficulty: 'Pro Normal',
+        bg: 'https://lh3.googleusercontent.com/gg/AI-bd7oJ9M5vFf-a5HkRjB4_5vP9QhWd2R2rP044Hj8H6g0QeW7Xw',
+        color: 'from-sky-500 to-blue-600'
+      },
+      {
+        id: 'track3',
+        title: 'Demon High Overdrive',
+        artist: 'Akuma Beatmaster',
+        bpm: 195,
+        ar: 9.8,
+        cs: 0.9,
+        duration: 42,
+        difficulty: 'Pro Max Insane',
+        bg: 'https://lh3.googleusercontent.com/gg/AI-bd7nK9M5vFf-a5HkRjB4_5vP9QhWd2R2rP044Hj8H6g0QeW7Xw',
+        color: 'from-purple-600 to-pink-600'
+      }
+    ];
+
+    let selectedMap = BEATMAPS[0];
+
+    function generateHitObjects(beatmap, canvasWidth, canvasHeight) {
+      const objects = [];
+      const margin = 120;
+
+      const beatInterval = 60 / beatmap.bpm;
+      const totalNotes = Math.floor(beatmap.duration / beatInterval) * 1.5;
+      
+      let currTime = 2.0;
+      let lastX = canvasWidth / 2;
+      let lastY = canvasHeight / 2;
+
+      for (let i = 0; i < totalNotes; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 90 + Math.random() * 240;
+
+        let x = lastX + Math.cos(angle) * dist;
+        let y = lastY + Math.sin(angle) * dist;
+
+        x = Math.max(margin, Math.min(canvasWidth - margin, x));
+        y = Math.max(margin, Math.min(canvasHeight - margin, y));
+
+        objects.push({
+          id: i,
+          x: x,
+          y: y,
+          time: currTime,
+          comboNum: (i % 8) + 1,
+          hit: false,
+          missed: false
+        });
+
+        lastX = x;
+        lastY = y;
+
+        const step = (i % 4 === 0) ? beatInterval * 1.5 : beatInterval * 0.75;
+        currTime += step;
+      }
+
+      return objects;
+    }
+
+    /* ==========================================================================
+       3. ENGINE & CANVAS RENDERER (WITH CURSOR & PARTICLE SYSTEM)
+       ========================================================================== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const hudOverlay = document.getElementById('hudOverlay');
+    const mainMenu = document.getElementById('mainMenu');
+    const songSelectScreen = document.getElementById('songSelectScreen');
+    const resultScreen = document.getElementById('resultScreen');
+    const settingsModal = document.getElementById('settingsModal');
+    const bgLayer = document.getElementById('bgLayer');
+
+    const hpFill = document.getElementById('hpFill');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const accuracyDisplay = document.getElementById('accuracyDisplay');
+    const comboDisplay = document.getElementById('comboDisplay');
+    const rankBadge = document.getElementById('rankBadge');
+    const keyZCount = document.getElementById('keyZCount');
+    const keyXCount = document.getElementById('keyXCount');
+
+    let zHits = 0;
+    let xHits = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Mouse Tracking & Cursor Trail System
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
+    let cursorTrail = [];
+    let clickRipples = [];
+    let hitParticles = [];
+
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      cursorTrail.push({ x: mouseX, y: mouseY, alpha: 1.0, radius: 14 });
+      if (cursorTrail.length > 16) cursorTrail.shift();
+    });
+
+    function spawnClickRipple(x, y) {
+      clickRipples.push({ x, y, radius: 10, maxRadius: 55, alpha: 1.0 });
+    }
+
+    function spawnHitParticles(x, y, color) {
+      for (let i = 0; i < 18; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 6;
+        hitParticles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: 3 + Math.random() * 4,
+          color: color,
+          alpha: 1.0
+        });
+      }
+    }
+
+    // Game Logic State
+    let isPlaying = false;
+    let startTime = 0;
+    let hitObjects = [];
+    let hitFeedbackPopups = [];
+
+    let score = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let hp = 100;
+    let count300 = 0;
+    let count100 = 0;
+    let count50 = 0;
+    let countMiss = 0;
+
+    function getApproachTime(ar) {
+      if (ar < 5) return 1800 - ar * 120;
+      return 1200 - (ar - 5) * 150;
+    }
+
+    function startGame(beatmap) {
+      audio.init();
+      audio.stopTrack();
+
+      selectedMap = beatmap;
+      bgLayer.style.backgroundImage = `url('${beatmap.bg}')`;
+      hitObjects = generateHitObjects(beatmap, canvas.width, canvas.height);
+      
+      score = 0;
+      combo = 0;
+      maxCombo = 0;
+      hp = 100;
+      count300 = 0;
+      count100 = 0;
+      count50 = 0;
+      countMiss = 0;
+      zHits = 0;
+      xHits = 0;
+      keyZCount.innerText = '0';
+      keyXCount.innerText = '0';
+
+      hitFeedbackPopups = [];
+      hitParticles = [];
+      clickRipples = [];
+      updateHUD();
+
+      mainMenu.classList.add('hidden');
+      songSelectScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      hudOverlay.classList.remove('hidden');
+      hudOverlay.classList.add('flex');
+
+      isPlaying = true;
+      startTime = performance.now();
+
+      audio.startProceduralTrack(beatmap.bpm, beatmap.duration + 3, () => {
+        if (isPlaying) endGame();
+      });
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop(now) {
+      if (!isPlaying) return;
+
+      const currentTime = (now - startTime) / 1000;
+      const approachTime = getApproachTime(selectedMap.ar) / 1000;
+      const baseRadius = 52 * parseFloat(document.getElementById('sliderCS').value);
+
+      hp = Math.max(0, hp - 0.045);
+      if (hp <= 0) {
+        endGame();
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. Render Hit Objects
+      for (let i = 0; i < hitObjects.length; i++) {
+        const obj = hitObjects[i];
+        if (obj.hit || obj.missed) continue;
+
+        const timeDiff = obj.time - currentTime;
+
+        if (timeDiff < -0.18) {
+          obj.missed = true;
+          registerHit('miss', obj.x, obj.y);
+          continue;
+        }
+
+        if (timeDiff <= approachTime && timeDiff >= -0.18) {
+          const progress = 1 - (timeDiff / approachTime);
+
+          // Hit Circle Inner
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(obj.x, obj.y, baseRadius, 0, Math.PI * 2);
+
+          const radGrad = ctx.createRadialGradient(obj.x, obj.y, 5, obj.x, obj.y, baseRadius);
+          radGrad.addColorStop(0, 'rgba(255, 102, 170, 0.95)');
+          radGrad.addColorStop(0.85, 'rgba(234, 76, 137, 0.85)');
+          radGrad.addColorStop(1, 'rgba(160, 30, 100, 0.95)');
+
+          ctx.fillStyle = radGrad;
+          ctx.fill();
+
+          ctx.lineWidth = 5;
+          ctx.strokeStyle = '#ffffff';
+          ctx.shadowColor = '#ff66aa';
+          ctx.shadowBlur = 18;
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '900 24px "Exo 2"';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(obj.comboNum, obj.x, obj.y);
+          ctx.restore();
+
+          // Approach Ring
+          if (progress >= 0 && progress <= 1) {
+            const currentApproachRadius = baseRadius + (baseRadius * 2.2 * (1 - progress));
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(obj.x, obj.y, currentApproachRadius, 0, Math.PI * 2);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(1, progress * 1.5)})`;
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      // 2. Render Explosive Hit Particles
+      for (let i = hitParticles.length - 1; i >= 0; i--) {
+        const p = hitParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.03;
+
+        if (p.alpha <= 0) {
+          hitParticles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. Render Floating Text Popups
+      for (let i = hitFeedbackPopups.length - 1; i >= 0; i--) {
+        const pop = hitFeedbackPopups[i];
+        pop.alpha -= 0.025;
+        pop.y -= 0.8;
+
+        if (pop.alpha <= 0) {
+          hitFeedbackPopups.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = pop.alpha;
+        ctx.font = '900 30px "Exo 2"';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = pop.color;
+        ctx.shadowColor = pop.color;
+        ctx.shadowBlur = 12;
+        ctx.fillText(pop.text, pop.x, pop.y);
+        ctx.restore();
+      }
+
+      // 4. Render Click Shockwave Ripples
+      for (let i = clickRipples.length - 1; i >= 0; i--) {
+        const r = clickRipples[i];
+        r.radius += 3.5;
+        r.alpha -= 0.04;
+
+        if (r.alpha <= 0 || r.radius >= r.maxRadius) {
+          clickRipples.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = `rgba(255, 102, 170, ${r.alpha})`;
+        ctx.shadowColor = '#ff66aa';
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 5. Render osu! Pro Cursor & Smooth Trail
+      renderOsuCursor();
+
+      updateHUD();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function renderOsuCursor() {
+      // Trail
+      for (let i = 0; i < cursorTrail.length; i++) {
+        const t = cursorTrail[i];
+        t.alpha -= 0.05;
+        t.radius *= 0.94;
+        if (t.alpha <= 0) continue;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, Math.max(2, t.radius), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 102, 170, ${t.alpha * 0.5})`;
+        ctx.shadowColor = '#ff66aa';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Outer Glowing Ring Cursor
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, 18, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 102, 170, 0.4)';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#ffffff';
+      ctx.shadowColor = '#ff66aa';
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+
+      // Center Core Dot
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    /* ==========================================================================
+       4. HIT DETECTION & SCORING LOGIC
+       ========================================================================== */
+    function attemptHit(clickX, clickY) {
+      if (!isPlaying) return;
+
+      spawnClickRipple(clickX, clickY);
+
+      const currentTime = (performance.now() - startTime) / 1000;
+      const baseRadius = 52 * parseFloat(document.getElementById('sliderCS').value);
+
+      for (let i = 0; i < hitObjects.length; i++) {
+        const obj = hitObjects[i];
+        if (obj.hit || obj.missed) continue;
+
+        const timeDiff = Math.abs(obj.time - currentTime);
+        const dist = Math.hypot(clickX - obj.x, clickY - obj.y);
+
+        if (dist <= baseRadius + 15 && timeDiff <= 0.25) {
+          obj.hit = true;
+
+          if (timeDiff <= 0.06) {
+            registerHit(300, obj.x, obj.y);
+          } else if (timeDiff <= 0.14) {
+            registerHit(100, obj.x, obj.y);
+          } else {
+            registerHit(50, obj.x, obj.y);
+          }
+          return;
+        }
+      }
+    }
+
+    function registerHit(type, x, y) {
+      if (type === 300) {
+        count300++;
+        combo++;
+        score += 300 + Math.floor(300 * combo * 0.1);
+        hp = Math.min(100, hp + 6);
+        audio.playHitsound('300');
+        hitFeedbackPopups.push({ text: '300', color: '#38bdf8', x, y, alpha: 1.0 });
+        spawnHitParticles(x, y, '#38bdf8');
+      } else if (type === 100) {
+        count100++;
+        combo++;
+        score += 100 + Math.floor(100 * combo * 0.1);
+        hp = Math.min(100, hp + 3);
+        audio.playHitsound('100');
+        hitFeedbackPopups.push({ text: '100', color: '#34d399', x, y, alpha: 1.0 });
+        spawnHitParticles(x, y, '#34d399');
+      } else if (type === 50) {
+        count50++;
+        combo++;
+        score += 50;
+        audio.playHitsound('50');
+        hitFeedbackPopups.push({ text: '50', color: '#fbbf24', x, y, alpha: 1.0 });
+        spawnHitParticles(x, y, '#fbbf24');
+      } else {
+        countMiss++;
+        combo = 0;
+        hp = Math.max(0, hp - 18);
+        hitFeedbackPopups.push({ text: 'X', color: '#f43f5e', x, y, alpha: 1.0 });
+      }
+
+      if (combo > maxCombo) maxCombo = combo;
+      updateHUD();
+    }
+
+    function calculateAccuracy() {
+      const totalHits = count300 + count100 + count50 + countMiss;
+      if (totalHits === 0) return 100;
+      const points = (count300 * 300) + (count100 * 100) + (count50 * 50);
+      return (points / (totalHits * 300)) * 100;
+    }
+
+    function getRankGrade(acc) {
+      if (acc === 100) return { grade: 'SS', color: 'text-amber-400' };
+      if (acc >= 95) return { grade: 'S', color: 'text-amber-300' };
+      if (acc >= 90) return { grade: 'A', color: 'text-emerald-400' };
+      if (acc >= 80) return { grade: 'B', color: 'text-blue-400' };
+      if (acc >= 70) return { grade: 'C', color: 'text-purple-400' };
+      return { grade: 'D', color: 'text-rose-500' };
+    }
+
+    function updateHUD() {
+      scoreDisplay.innerText = String(score).padStart(8, '0');
+      comboDisplay.innerText = `${combo}x`;
+
+      const acc = calculateAccuracy();
+      accuracyDisplay.innerText = `${acc.toFixed(2)}%`;
+
+      const rank = getRankGrade(acc);
+      rankBadge.innerText = rank.grade;
+
+      hpFill.style.width = `${hp}%`;
+    }
+
+    function endGame() {
+      isPlaying = false;
+      audio.stopTrack();
+
+      hudOverlay.classList.add('hidden');
+      hudOverlay.classList.remove('flex');
+      resultScreen.classList.remove('hidden');
+      resultScreen.classList.add('flex');
+
+      document.getElementById('resultSongTitle').innerText = selectedMap.title;
+      document.getElementById('resScore').innerText = score.toLocaleString();
+      const acc = calculateAccuracy();
+      document.getElementById('resAccuracy').innerText = `${acc.toFixed(2)}%`;
+      document.getElementById('resMaxCombo').innerText = `${maxCombo}x`;
+      document.getElementById('res300').innerText = count300;
+      document.getElementById('res100').innerText = count100;
+      document.getElementById('res50').innerText = count50;
+      document.getElementById('resMiss').innerText = countMiss;
+
+      const rankInfo = getRankGrade(acc);
+      const resGradeEl = document.getElementById('resultGrade');
+      resGradeEl.innerText = rankInfo.grade;
+      resGradeEl.className = `text-9xl font-black drop-shadow-[0_0_40px_rgba(255,102,170,0.7)] ${rankInfo.color}`;
+    }
+
+    /* ==========================================================================
+       5. INPUT CONTROLS
+       ========================================================================== */
+    window.addEventListener('mousedown', (e) => {
+      if (isPlaying) {
+        attemptHit(e.clientX, e.clientY);
+        triggerKeyUI('Z');
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const key = e.key.toLowerCase();
+
+      if (key === 'z') {
+        zHits++;
+        keyZCount.innerText = zHits;
+        triggerKeyUI('Z');
+        attemptHit(mouseX, mouseY);
+      } else if (key === 'x') {
+        xHits++;
+        keyXCount.innerText = xHits;
+        triggerKeyUI('X');
+        attemptHit(mouseX, mouseY);
+      } else if (key === 'escape' && isPlaying) {
+        endGame();
+      }
+    });
+
+    function triggerKeyUI(key) {
+      const el = key === 'Z' ? document.getElementById('keyZ') : document.getElementById('keyX');
+      if (el) {
+        el.classList.add('key-active');
+        setTimeout(() => el.classList.remove('key-active'), 100);
+      }
+    }
+
+    /* ==========================================================================
+       6. UI NAVIGATION
+       ========================================================================== */
+    const osuLogoBtn = document.getElementById('osuLogoBtn');
+    const btnPlay = document.getElementById('btnPlay');
+    const btnSongSelect = document.getElementById('btnSongSelect');
+    const btnBackToMain = document.getElementById('btnBackToMain');
+    const btnStartGame = document.getElementById('btnStartGame');
+    const btnRetry = document.getElementById('btnRetry');
+    const btnResultMenu = document.getElementById('btnResultMenu');
+    const btnSettingsToggle = document.getElementById('btnSettingsToggle');
+    const btnCloseSettings = document.getElementById('btnCloseSettings');
+    const songListContainer = document.getElementById('songListContainer');
+
+    function renderSongList() {
+      songListContainer.innerHTML = '';
+      BEATMAPS.forEach(map => {
+        const isSelected = map.id === selectedMap.id;
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-2xl border cursor-pointer transition-all duration-200 flex flex-col justify-between relative overflow-hidden group ${
+          isSelected 
+            ? 'bg-slate-900/90 border-pink-500 shadow-xl shadow-pink-500/20 ring-2 ring-pink-500/60' 
+            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+        }`;
+
+        card.innerHTML = `
+          <div class="absolute inset-0 bg-cover bg-center opacity-20 group-hover:opacity-30 transition-opacity" style="background-image: url('${map.bg}')"></div>
+          <div class="relative z-10 flex items-center gap-4 mb-4">
+            <img src="${map.bg}" class="w-16 h-16 rounded-xl object-cover border border-pink-500/40 shadow" alt="Card preview">
+            <div>
+              <h3 class="font-bold text-lg text-white leading-tight">${map.title}</h3>
+              <p class="text-xs text-slate-300 mt-0.5">${map.artist}</p>
+              <span class="inline-block mt-1 px-2 py-0.5 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded text-[10px] font-bold">${map.difficulty}</span>
+            </div>
+          </div>
+          <div class="relative z-10 flex justify-between text-xs text-slate-400 border-t border-slate-800/80 pt-2">
+            <span>BPM: <strong class="text-slate-200">${map.bpm}</strong></span>
+            <span>AR: <strong class="text-slate-200">${map.ar}</strong></span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => {
+          selectedMap = map;
+          bgLayer.style.backgroundImage = `url('${map.bg}')`;
+          updateSelectedSongUI();
+          renderSongList();
+        });
+
+        songListContainer.appendChild(card);
+      });
+    }
+
+    function updateSelectedSongUI() {
+      document.getElementById('selectedTitle').innerText = selectedMap.title;
+      document.getElementById('selectedBgPreview').src = selectedMap.bg;
+      document.getElementById('selectedDetails').innerText = `Artist: ${selectedMap.artist} | BPM: ${selectedMap.bpm} | AR: ${selectedMap.ar} | Diff: ${selectedMap.difficulty}`;
+    }
+
+    osuLogoBtn.addEventListener('click', () => {
+      audio.init();
+      audio.playHitsound('300');
+      mainMenu.classList.add('hidden');
+      songSelectScreen.classList.remove('hidden');
+      songSelectScreen.classList.add('flex');
+      renderSongList();
+      updateSelectedSongUI();
+    });
+
+    btnPlay.addEventListener('click', () => {
+      audio.init();
+      startGame(selectedMap);
+    });
+
+    btnSongSelect.addEventListener('click', () => {
+      audio.init();
+      mainMenu.classList.add('hidden');
+      songSelectScreen.classList.remove('hidden');
+      songSelectScreen.classList.add('flex');
+      renderSongList();
+      updateSelectedSongUI();
+    });
+
+    btnBackToMain.addEventListener('click', () => {
+      songSelectScreen.classList.add('hidden');
+      songSelectScreen.classList.remove('flex');
+      mainMenu.classList.remove('hidden');
+    });
+
+    btnStartGame.addEventListener('click', () => {
+      startGame(selectedMap);
+    });
+
+    btnRetry.addEventListener('click', () => {
+      startGame(selectedMap);
+    });
+
+    btnResultMenu.addEventListener('click', () => {
+      resultScreen.classList.add('hidden');
+      resultScreen.classList.remove('flex');
+      mainMenu.classList.remove('hidden');
+    });
+
+    btnSettingsToggle.addEventListener('click', () => {
+      settingsModal.classList.remove('hidden');
+    });
+
+    btnCloseSettings.addEventListener('click', () => {
+      settingsModal.classList.add('hidden');
+    });
+
+    document.getElementById('sliderVolume').addEventListener('input', (e) => {
+      audio.setVolume(parseFloat(e.target.value));
+    });
+
+    document.getElementById('sliderBgDim').addEventListener('input', (e) => {
+      bgLayer.style.opacity = 1 - parseFloat(e.target.value);
+    });
+
+    // Idle Menu Cursor Renderer Loop
+    function drawIdleLoop() {
+      if (!isPlaying) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        renderOsuCursor();
+      }
+      requestAnimationFrame(drawIdleLoop);
+    }
+    drawIdleLoop();
+  </script>
+</body>
+</html>
